@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, Float, ForeignKey, String, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+import numpy as np
+import typing
 
 Base = declarative_base()
 
@@ -16,6 +18,17 @@ class EllipticalParticle(Base):
     image_id = Column(Integer, ForeignKey("imgs.id"))
     occluded = Column(Float)
     occlusions = Column(Integer)
+
+    def __init__(self, xcenter: int, ycenter: int, a: float, b: float, rotation: float, angle_range: typing.List[typing.Tuple[float, float]]):
+        self.x = xcenter
+        self.y = ycenter
+        self.a = a
+        self.b = b
+        self.theta = rotation
+        self.angle_range = angle_range
+        self.occlusions = len(angle_range)
+        self.occluded = 1 - (np.sum([i[1] - i[0] for i in angle_range]) / np.pi / 2)
+        self.image = None
 
 
 class Img(Base):

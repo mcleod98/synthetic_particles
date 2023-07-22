@@ -27,14 +27,14 @@ def generate_images(settings: dict, session, n: int) -> None:
     for i in range(n):
         counter += 1
         grid = np.zeros([planner_sets['xdim'], planner_sets['ydim']])
+        Im = Img(bmp=grid)
         els = planner.generate_ellipse_set()
         for e in els:
-            e.draw(grid)
-        Im = Img(bmp=grid)
-        session.add(Im)
-        for e in els:
+            print(e)
+            draw_elliptical_particle(e, grid)
             e.image = Im
             session.add(e)
+        session.add(Im)
         if i in intervals:
             print(f'Finished with sample {i+1} out of {n}')
         if counter >= 10:
@@ -42,44 +42,6 @@ def generate_images(settings: dict, session, n: int) -> None:
             counter = 0
     session.commit()
     print(f'Finished generating {n} images, uploaded to {session.bind}')
-
-class Ellipse(EllipticalParticle):
-    def __init__(self, xcenter: int, ycenter: int, a: float, b: float, rotation: float, angle_range: typing.List[typing.Tuple[float, float]] = [(0,2*np.pi)]):
-        self.x = xcenter
-        self.y = ycenter
-        self.a = a
-        self.b = b
-        self.theta = rotation
-        self.angle_range = angle_range
-        self.occlusions = len(angle_range)
-        self.occluded = 1 - (np.sum([i[1] - i[0] for i in angle_range]) / np.pi / 2)
-        
-    def draw(self, grid: np.ndarray) -> np.ndarray:
-        thickness = (.97 - np.random.random() / 20)
-
-        xprime = self.x * np.cos(self.theta) - self.y * np.sin(self.theta)
-        yprime = self.x * np.sin(self.theta) + self.y * np.cos(self.theta)
-        a = self.a ** 2
-        b = self.b ** 2
-        xx, yy = np.mgrid[:grid.shape[0],: grid.shape[1]]
-        
-        ellipse = ((xx * np.cos(self.theta) - yy * np.sin(self.theta) - xprime) ** 2 / a) + ((yy * np.cos(self.theta) + xx * np.sin(self.theta) - yprime) ** 2 / b)
-        
-        delx = (xx * np.cos(self.theta) - yy * np.sin(self.theta) - xprime)
-        dely = (yy * np.cos(self.theta) + xx * np.sin(self.theta) - yprime)
-        direct = np.arctan2(dely,delx) + np.pi
-        
-        masks = [((direct >= low) & (direct <= high)) for low, high in self.angle_range]
-        big_mask = reduce(np.logical_or, masks)
-        
-        inside = ellipse < 1
-        grid[inside] = False
-        
-        rimpts = (ellipse > thickness) & (ellipse < 1)
-        final_pts = np.logical_and(big_mask, rimpts)
-        grid[final_pts] = True
-    
-        return grid
 
 
 class Grid_planner():
@@ -102,7 +64,7 @@ class Grid_planner():
         norm = np.sum([p for n,p in n_dist])
         self.n_dist = [[n, p/norm] for n,p in n_dist]
         
-    def generate_ellipse_set(self) -> typing.List[typing.Type[Ellipse]]:
+    def generate_ellipse_set(self) -> typing.List[typing.Type[EllipticalParticle]]:
         e = []
         n = int(np.random.normal(self.mean_n, self.sd_n))
         for i in range(n):
@@ -132,7 +94,7 @@ class Grid_planner():
                             'rotation': np.random.random() * np.pi * 2,
                             'angle_range': self.generate_filter()
                     }
-                    El = Ellipse(**args)
+                    El = EllipticalParticle(**args)
                     e.append(El)
                     break
                 elif try_to_place == 20:
@@ -172,3 +134,31 @@ class Grid_planner():
             filter.append((start, start + occ))
             start += occ
         return filter
+    
+
+def draw_elliptical_particle(ellipse: typing.Type[EllipticalParticle], grid: np.ndarray) -> np.ndarray:
+    thickness = (.97 - np.random.random() / 20)
+
+    xprime = ellipse.x * np.cos(ellipse.theta) - ellipse.y * np.sin(ellipse.theta)
+    yprime = ellipse.x * np.sin(ellipse.theta) + ellipse.y * np.cos(ellipse.theta)
+    a = ellipse.a ** 2
+    b = ellipse.b ** 2
+    xx, yy = np.mgrid[:grid.shape[0],: grid.shape[1]]
+    
+    distance = ((xx * np.cos(ellipse.theta) - yy * np.sin(ellipse.theta) - xprime) ** 2 / a) + ((yy * np.cos(ellipse.theta) + xx * np.sin(ellipse.theta) - yprime) ** 2 / b)
+    
+    delx = (xx * np.cos(ellipse.theta) - yy * np.sin(ellipse.theta) - xprime)
+    dely = (yy * np.cos(ellipse.theta) + xx * np.sin(ellipse.theta) - yprime)
+    direct = np.arctan2(dely,delx) + np.pi
+    
+    masks = [((direct >= low) & (direct <= high)) for low, high in ellipse.angle_range]
+    big_mask = reduce(np.logical_or, masks)
+    
+    inside = distance < 1
+    grid[inside] = False
+    
+    rimpts = (distance > thickness) & (distance < 1)
+    final_pts = np.logical_and(big_mask, rimpts)
+    grid[final_pts] = True
+
+    return grid
