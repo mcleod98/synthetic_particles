@@ -1,27 +1,18 @@
-import os
-import datetime
-import environs
 
-env = environs.Env(eager=False)
-env.read_env()
-dirname = os.path.dirname(__file__)
-class Config():
-    def __init__(self):
-        self.POSTGRES_USER = env.str("POSTGRES_USER", default='postgres')
-        self.POSTGRES_PASSWORD = env.str("POSTGRES_PASSWORD", default='password')
-        self.POSTGRES_DB = env.str("POSTGRES_DB", default='postgres')
-        self.POSTGRES_HOST = env.str("POSTGRES_HOST", default='localhost')
-        self.POSTGRES_PORT = env.int("POSTGRES_PORT", default=5432)
 
-        self.SCRAPER_URL = env.str('SCRAPER_URL', default='https://www.chess.com')
-        self.ACCOUNT_NAME = env.str('ACCOUNT_NAME')
-        self.ACCOUNT_PASSWORD = env.str('ACCOUNT_PASSWORD')
-        self.SCRAPER_DOWNLOAD_PATH = env.str('DOWNLOAD_PATH', default=dirname +  '/downloads')
-        self.SCRAPER_TEMP_PATH =  env.str('DOWNLOAD_PATH', default=dirname + '/downloads/temp')
-        self.START_DATE = env.str('START_DATE', default=None)
-        self.END_DATE = env.str('END_DATE', default=None)
-
-        env.seal()
-    
-    def postgres_dsn(self):
-        return f'postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}'
+def check_yaml(config: dict) -> dict:
+    conf = {'xdim': int(config['xdim']),
+        'ydim': int(config['ydim']),
+        'mean_r': float(config['mean_r']), 
+        'mean_aspect': float(config['mean_aspect']),
+        'mean_n': float(config['mean_n']), 
+        'sd_r': float(config['sd_r']), 
+        'sd_aspect': float(config['sd_aspect']), 
+        'sd_n': float(config['sd_n']), 
+        'min_offset': float(config['min_offset']), 
+        'gutters': (int(config['gutters'][0]), int(config['gutters'][1])),
+        'mean_theta': float(config.get('mean_theta', 0)),
+        'sd_theta': float(config.get('sd_theta', 0)),
+        'n_dist': config.get('n_dist', []),
+    }
+    return conf

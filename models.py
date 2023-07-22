@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, LargeBinary
+from sqlalchemy import Column, Integer, Float, ForeignKey, String, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -13,6 +13,7 @@ class EllipticalParticle(Base):
     b = Column(Float)
     theta = Column(Float)
     image = relationship('Img', back_populates='particles')
+    image_id = Column(Integer, ForeignKey("imgs.id"))
     occluded = Column(Float)
     occlusions = Column(Integer)
 
@@ -22,5 +23,3 @@ class Img(Base):
     id = Column(Integer, primary_key=True)
     bmp = Column(LargeBinary)
     particles = relationship('EllipticalParticle', back_populates='image')
-    movenumber = Column(Integer)
-    move = Column(String)

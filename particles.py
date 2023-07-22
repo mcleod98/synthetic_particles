@@ -1,86 +1,50 @@
 import numpy as np
 from PIL import Image
 from functools import reduce
-import typing
+import typing, math
 
 from models import EllipticalParticle, Img
 
-def draw_grids(settings: dict, n: int) -> None:
-    planner_sets = {'xdim': 250,
-            'ydim': 250,
-            'mean_r': 30, 
-            'mean_aspect': 1,
-            'mean_n': 8, 
-            'sd_r': 10, 
-            'sd_aspect': .2, 
-            'sd_n': 4, 
-            'min_offset': 30, 
-            'gutters': [10,10]
+def generate_images(settings: dict, session, n: int) -> None:
+    planner_sets = {'xdim': settings['xdim'],
+            'ydim': settings['ydim'],
+            'mean_r': settings['mean_r'], 
+            'mean_aspect': settings['mean_aspect'],
+            'mean_n': settings['mean_n'], 
+            'sd_r': settings['sd_r'], 
+            'sd_aspect': settings['sd_aspect'], 
+            'sd_n': settings['sd_n'], 
+            'min_offset': settings['min_offset'], 
+            'gutters': settings['gutters'],
+            'mean_theta': settings['mean_theta'],
+            'sd_theta': settings['sd_theta'],
+            'n_dist': settings['n_dist']
     }
-    interference_sets = {'mean_theta': np.pi/6,
-                    'sd_theta': np.pi/8,
-                    'n_dist': [(1, .50), (2, .25,) (3, .125), (4, .125)]
-    }
-    
-    planner = Grid_planner(*planner_sets)
-    grids = []
-    metas = []
+    planner = Grid_planner(**planner_sets)
+    imgs = []
+    counter = 0
+    intervals = np.arange(0, n, 10)
     for i in range(n):
-        grid = np.zeros(sets['xdim'], sets['ydim'])
-        els = planner.generate_elipse_set()
+        counter += 1
+        grid = np.zeros([planner_sets['xdim'], planner_sets['ydim']])
+        els = planner.generate_ellipse_set()
         for e in els:
             e.draw(grid)
-        grids.append(grid)
-        metas.append()
+        Im = Img(bmp=grid)
+        session.add(Im)
+        for e in els:
+            e.image = Im
+            session.add(e)
+        if i in intervals:
+            print(f'Finished with sample {i+1} out of {n}')
+        if counter >= 10:
+            session.commit()
+            counter = 0
+    session.commit()
+    print(f'Finished generating {n} images, uploaded to {session.bind}')
 
-
-class Grid_planner():
-    def __init__(self, xdim: int, ydim: int, mean_r: float, mean_aspect: float, mean_n: float, 
-                 sd_r: float, sd_aspect: float, sd_n: float, min_offset: int = 0, gutters: tuple(int, int) = (0,0)):
-        self.xdim = xdim
-        self.ydim = ydim
-        self.mean_r = mean_r
-        self.mean_aspect = mean_aspect
-        self.sd_r = sd_r
-        self.sd_aspect = sd_aspect
-        self.mean_n = mean_n
-        self.sd_n = sd_n
-        self.min_offset = min_offset
-        self.gutters = gutters
-        
-    def generate_ellipse_set(self) -> list[Ellipse]:
-        e = []
-        n = int(np.random.normal(self.mean_n, self.sd_n))
-        for i in range(n):
-            try_to_place = 0
-            while try_to_place < 20:
-                try_to_place += 1
-                x = gutters[0] + np.random.random() * (self.xdim - gutters[0])
-                y = gutters[1] + np.random.random() * (self.ydim - gutters[1])
-                
-                if min_offset > 0:
-                    place = True
-                    for j in e:
-                        if abs(x - j.x) <= min_offset and abs(y - j.y) <= min_offset:
-                            place = False
-                            break
-                else:
-                    place = True
-                    
-                if place:   
-                    asp = np.random.normal(self.mean_aspect, self.sd_aspect)
-                    a = np.random.normal(self.mean_r, self.sd_r)
-                    b = a * asp
-                    theta = np.random.random() * np.pi * 2
-                    El = Ellipse(xcenter=x, ycenter=y, a=a, b=b, rotation=theta)
-                    e.append(El)
-                    break
-                elif try_to_place == 20:
-                    print('Error: Failed to place particle {i}')
-        return e
-    
-class Ellipse(ElipticalParticle):
-    def __init__(self, xcenter: int, ycenter: int, a: float, b: float, rotation: float, angle_range: list[tuple(float, float)] = [(0,2*np.pi)]):
+class Ellipse(EllipticalParticle):
+    def __init__(self, xcenter: int, ycenter: int, a: float, b: float, rotation: float, angle_range: typing.List[typing.Tuple[float, float]] = [(0,2*np.pi)]):
         self.x = xcenter
         self.y = ycenter
         self.a = a
@@ -116,20 +80,72 @@ class Ellipse(ElipticalParticle):
         grid[final_pts] = True
     
         return grid
-    
-class Occlusion():
-    def __init__(self, mean_theta: float, sd_theta: float, n_dist: list[tuple(int, float)]):
+
+
+class Grid_planner():
+    def __init__(self, xdim: int, ydim: int, mean_r: float, mean_aspect: float, mean_n: float, 
+                sd_r: float, sd_aspect: float, sd_n: float, 
+                mean_theta: float, sd_theta: float, n_dist: typing.List[typing.Tuple[int, float]], 
+                min_offset: int = 0, gutters: typing.Tuple[int, int] = (0,0)):
+        self.xdim = xdim
+        self.ydim = ydim
+        self.mean_r = mean_r
+        self.mean_aspect = mean_aspect
+        self.sd_r = sd_r
+        self.sd_aspect = sd_aspect
+        self.mean_n = mean_n
+        self.sd_n = sd_n
+        self.min_offset = min_offset
+        self.gutters = gutters
         self.mean_theta = mean_theta
         self.sd_theta = sd_theta
         norm = np.sum([p for n,p in n_dist])
         self.n_dist = [[n, p/norm] for n,p in n_dist]
-
-
-    def generate_filter(self) -> list[tuple(float, float)]:
+        
+    def generate_ellipse_set(self) -> typing.List[typing.Type[Ellipse]]:
+        e = []
+        n = int(np.random.normal(self.mean_n, self.sd_n))
+        for i in range(n):
+            try_to_place = 0
+            while try_to_place < 20:
+                try_to_place += 1
+                x = self.gutters[0] + np.random.random() * (self.xdim - self.gutters[0])
+                y = self.gutters[1] + np.random.random() * (self.ydim - self.gutters[1])
+                
+                if self.min_offset > 0:
+                    place = True
+                    for j in e:
+                        if abs(x - j.x) <= self.min_offset and abs(y - j.y) <= self.min_offset:
+                            place = False
+                            break
+                else:
+                    place = True
+                    
+                if place:
+                    asp = np.random.normal(self.mean_aspect, self.sd_aspect)
+                    a = np.random.normal(self.mean_r, self.sd_r)
+                    b = a * asp
+                    args = {'xcenter': x,
+                            'ycenter': y,
+                            'a': a,
+                            'b': b,
+                            'rotation': np.random.random() * np.pi * 2,
+                            'angle_range': self.generate_filter()
+                    }
+                    El = Ellipse(**args)
+                    e.append(El)
+                    break
+                elif try_to_place == 20:
+                    print('Error: Failed to place particle {i}')
+        return e
+    
+    def generate_filter(self) -> typing.List[typing.Tuple[float, float]]:
+        if self.mean_theta == 0 or self.n_dist == []:
+            return [(0, np.pi*2)]
         n_seed = np.random.random()
         c = 0
         n = 0
-        for bucket in n_dist:
+        for bucket in self.n_dist:
             c += bucket[1]
             if n_seed <= c:
                 n = bucket[0]
@@ -138,7 +154,7 @@ class Occlusion():
             raise ValueError('Failed to generate number of occlusions, check n_dist format')
         
         occ_thetas = [np.random.normal(self.mean_theta, self.sd_theta) for i in range(n)]
-        remaining_theta = np.pi * 2 - np.sum(occ_theta)
+        remaining_theta = np.pi * 2 - np.sum(occ_thetas)
 
         if remaining_theta < 0:
             raise ValueError('Total occluded angle exceeds 2pi, lower mean_theta')
@@ -156,7 +172,3 @@ class Occlusion():
             filter.append((start, start + occ))
             start += occ
         return filter
-
-        
-
-    

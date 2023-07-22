@@ -1,0 +1,15 @@
+mean_theta: 0.5235987755982988
+n_dist:
+- !!python/tuple
+  - 1
+  - 0.5
+- !!python/tuple
+  - 2
+  - 0.25
+- !!python/tuple
+  - 3
+  - 0.125
+- !!python/tuple
+  - 4
+  - 0.125
+sd_theta: 0.39269908169872414
