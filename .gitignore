@@ -1,11 +1,7 @@
-# Binaries for programs and plugins
+# SQLite db file
 *.db
 
-# Test binary, built with `go test -c`
-*.test
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-# Dependency directories (remove the comment below to include it)
+# data and temp directories
 data/images
 .ipynb_checkpoints
 __pycache__ 
