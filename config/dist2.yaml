@@ -2,7 +2,7 @@ name: dist1
 mean_aspect: 1
 mean_n: 8
 mean_r: 25
-min_offset: 1
+min_offset: 30
 sd_aspect: 0.2
 sd_n: 4
 sd_r: 8
@@ -11,8 +11,8 @@ ydim: 250
 gutters:
 - 10
 - 10
-mean_theta: .2
-sd_theta: .1
+mean_theta: 0.5235987755982988
+sd_theta: 0.39269908169872414
 n_dist:
 - !!python/tuple
   - 1

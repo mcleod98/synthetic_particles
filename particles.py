@@ -1,11 +1,11 @@
 import numpy as np
 from PIL import Image
 from functools import reduce
-import typing, math
+import typing, math, os
 
 from models import EllipticalParticle, Img
 
-def generate_images(settings: dict, session, n: int) -> None:
+def generate_images(settings: dict, session, n: int, output_filepath: str) -> None:
     planner_sets = {'xdim': settings['xdim'],
             'ydim': settings['ydim'],
             'mean_r': settings['mean_r'], 
@@ -21,19 +21,26 @@ def generate_images(settings: dict, session, n: int) -> None:
             'n_dist': settings['n_dist']
     }
     planner = Grid_planner(**planner_sets)
-    imgs = []
+
+    highest = 0
+    for _a, _b, files in os.walk(output_filepath):
+        for f in files:
+            _c, sets, num = parse_filename(f)
+            if sets == settings['name'] and num > highest:
+                highest = num
     counter = 0
     intervals = np.arange(0, n, 10)
     for i in range(n):
         counter += 1
-        grid = np.zeros([planner_sets['xdim'], planner_sets['ydim']])
-        Im = Img(bmp=grid)
+        grid = np.zeros([planner_sets['xdim'], planner_sets['ydim']], dtype=bool)
+        img_filepath= os.path.join(output_filepath, generate_filename(settings=settings['name'], number=highest + i + 1))
+        Im = Img(img_filepath= img_filepath)
         els = planner.generate_ellipse_set()
         for e in els:
-            print(e)
             draw_elliptical_particle(e, grid)
             e.image = Im
             session.add(e)
+        save_boolean_grid(grid, img_filepath)
         session.add(Im)
         if i in intervals:
             print(f'Finished with sample {i+1} out of {n}')
@@ -73,20 +80,21 @@ class Grid_planner():
                 try_to_place += 1
                 x = self.gutters[0] + np.random.random() * (self.xdim - self.gutters[0])
                 y = self.gutters[1] + np.random.random() * (self.ydim - self.gutters[1])
+                asp = np.random.normal(self.mean_aspect, self.sd_aspect)
+                a = np.random.normal(self.mean_r, self.sd_r)
+                b = a * asp
                 
                 if self.min_offset > 0:
                     place = True
                     for j in e:
-                        if abs(x - j.x) <= self.min_offset and abs(y - j.y) <= self.min_offset:
+                        d = np.sqrt((x - j.x) ** 2 + (y - j.y) **2)
+                        if d / (j.a + j.b + a + b) * 2 < self.min_offset:
                             place = False
                             break
                 else:
                     place = True
                     
                 if place:
-                    asp = np.random.normal(self.mean_aspect, self.sd_aspect)
-                    a = np.random.normal(self.mean_r, self.sd_r)
-                    b = a * asp
                     args = {'xcenter': x,
                             'ycenter': y,
                             'a': a,
@@ -115,7 +123,7 @@ class Grid_planner():
         if n == 0:
             raise ValueError('Failed to generate number of occlusions, check n_dist format')
         
-        occ_thetas = [np.random.normal(self.mean_theta, self.sd_theta) for i in range(n)]
+        occ_thetas = [abs(np.random.normal(self.mean_theta, self.sd_theta)) for i in range(n)]
         remaining_theta = np.pi * 2 - np.sum(occ_thetas)
 
         if remaining_theta < 0:
@@ -130,14 +138,14 @@ class Grid_planner():
         start = 0
         filter = []
         for occ, gap in zip(occ_thetas, gaps):
-            start += gap
-            filter.append((start, start + occ))
-            start += occ
+            filter.append((start, start + gap))
+            start += occ + gap
+        filter.append((start, 2*np.pi))
         return filter
     
 
 def draw_elliptical_particle(ellipse: typing.Type[EllipticalParticle], grid: np.ndarray) -> np.ndarray:
-    thickness = (.97 - np.random.random() / 20)
+    thickness = (.9)
 
     xprime = ellipse.x * np.cos(ellipse.theta) - ellipse.y * np.sin(ellipse.theta)
     yprime = ellipse.x * np.sin(ellipse.theta) + ellipse.y * np.cos(ellipse.theta)
@@ -154,11 +162,24 @@ def draw_elliptical_particle(ellipse: typing.Type[EllipticalParticle], grid: np.
     masks = [((direct >= low) & (direct <= high)) for low, high in ellipse.angle_range]
     big_mask = reduce(np.logical_or, masks)
     
-    inside = distance < 1
-    grid[inside] = False
+    #inside = distance < 1
+    #grid[inside] = False
     
     rimpts = (distance > thickness) & (distance < 1)
     final_pts = np.logical_and(big_mask, rimpts)
     grid[final_pts] = True
-
     return grid
+
+def parse_filename(filename: str) -> typing.Tuple[str, str, int]:
+    try:
+        root, settings, number = os.path.splitext(filename)[0].split('_')
+        return (root, settings, int(number))
+    except:
+        print(f'Unable to parse filename {filename}')
+        return ('', '', '')
+    
+def generate_filename(settings: str, number: int, root: str='synth', ext: str='.bmp') -> str:
+    return(f'{root}_{settings}_{number}{ext}')
+
+def save_boolean_grid(grid, filepath):
+    Image.fromarray(grid,).save(filepath)

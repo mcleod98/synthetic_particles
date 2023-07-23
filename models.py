@@ -34,5 +34,6 @@ class EllipticalParticle(Base):
 class Img(Base):
     __tablename__ = 'imgs'
     id = Column(Integer, primary_key=True)
-    bmp = Column(LargeBinary)
+    img_filepath = Column(String)
     particles = relationship('EllipticalParticle', back_populates='image')
+

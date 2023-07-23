@@ -5,7 +5,7 @@ from models import Base
 
 def get_session(db_path: str):
     """Provides a connection to the database through sqlalchemy session"""
-    engine= create_engine(f"sqlite:///{db_path}", echo=True)
+    engine= create_engine(f"sqlite:///{db_path}", echo=False)
     S = sessionmaker(engine, expire_on_commit=True)
     return S()
 

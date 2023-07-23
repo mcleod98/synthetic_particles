@@ -1,7 +1,8 @@
 
 
 def check_yaml(config: dict) -> dict:
-    conf = {'xdim': int(config['xdim']),
+    conf = {'name': str(config['name']),
+        'xdim': int(config['xdim']),
         'ydim': int(config['ydim']),
         'mean_r': float(config['mean_r']), 
         'mean_aspect': float(config['mean_aspect']),
