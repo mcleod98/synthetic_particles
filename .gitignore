@@ -1,5 +1,6 @@
 # SQLite db file
 *.db
+*.DS_Store
 
 # data and temp directories
 data/images
